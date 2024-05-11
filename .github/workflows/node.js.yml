@@ -1,31 +1,39 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+name: "build pipeline for web release"
 
-name: Node.js CI
-
-on:
+on: 
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+    - main
 
 jobs:
+    
   build:
-
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [14.x, 16.x, 18.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
+    runs-on: self-hosted
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+    - uses: actions/checkout@v2
+    - name: Use Node.js 16.x
+      uses: actions/setup-node@v2
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 16.x
         cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
+        cache-dependency-path: package-lock.json
+    - name: Install dependencies
+      run: npm install 
+    # - name: Run tests
+    # - run: npm test
+    - name: Build file
+      run: npm run build
+      
+    # copy file for netlify.toml
+    - name: Copy build settings to build folder
+      run: cp netlify.toml build/
+
+    # deploy application to netlify
+    - name: Deploy production to Netlify
+      uses: South-Paw/action-netlify-deploy@v1.2.0
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        netlify-auth-token: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        netlify-site-id: ${{ secrets.NETLIFY_SITE_ID }}
+        build-dir: './build'
+        comment-on-commit: true
